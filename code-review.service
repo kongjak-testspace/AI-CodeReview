@@ -5,9 +5,9 @@ After=network.target
 [Service]
 Type=simple
 User=kongjak
-WorkingDirectory=/home/kongjak/Work/Python/Code-Review
-EnvironmentFile=/home/kongjak/Work/Python/Code-Review/.env
-ExecStart=/home/kongjak/Work/Python/Code-Review/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+WorkingDirectory=/home/kongjak/AI-CodeReview
+EnvironmentFile=/home/kongjak/AI-CodeReview/.env
+ExecStart=/home/kongjak/AI-CodeReview/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=on-failure
 RestartSec=5
 
