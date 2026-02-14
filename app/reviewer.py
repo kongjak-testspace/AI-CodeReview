@@ -4,14 +4,107 @@ import shutil
 import tempfile
 
 from app.cli.base import get_adapter
-from app.config import load_config
+from app.config import RepoConfig, load_config
 from app.github_client import GitHubClient
 from app.parser import parse_review_output
-from app.prompt import build_review_prompt
+from app.prompt import build_review_prompt, build_synthesis_prompt
 
 
 logger = logging.getLogger(__name__)
 _semaphore = asyncio.Semaphore(3)
+
+
+async def _run_single_cli(
+    cli_name: str,
+    prompt: str,
+    cwd: str,
+    timeout: int,
+    owner: str,
+    repo: str,
+    pr_number: int,
+) -> str | None:
+    try:
+        adapter = get_adapter(cli_name)
+        output = await adapter.run_review(prompt, cwd, timeout)
+        logger.info(f"CLI '{cli_name}' succeeded for {owner}/{repo}#{pr_number}")
+        return output
+    except Exception as exc:
+        logger.warning(f"CLI '{cli_name}' failed for {owner}/{repo}#{pr_number}: {exc}")
+        return None
+
+
+async def _review_single_mode(
+    repo_config: RepoConfig,
+    prompt: str,
+    cwd: str,
+    owner: str,
+    repo: str,
+    pr_number: int,
+) -> str:
+    cli_order = [repo_config.cli] + [
+        c for c in repo_config.fallback_cli if c != repo_config.cli
+    ]
+
+    for cli_name in cli_order:
+        raw_output = await _run_single_cli(
+            cli_name, prompt, cwd, repo_config.timeout, owner, repo, pr_number
+        )
+        if raw_output is not None:
+            return raw_output
+
+    raise RuntimeError(f"All CLIs failed for {owner}/{repo}#{pr_number}")
+
+
+async def _review_multi_mode(
+    repo_config: RepoConfig,
+    prompt: str,
+    diff: str,
+    cwd: str,
+    owner: str,
+    repo: str,
+    pr_number: int,
+) -> str:
+    all_clis = list(dict.fromkeys([repo_config.cli] + repo_config.fallback_cli))
+
+    tasks = [
+        _run_single_cli(
+            cli_name, prompt, cwd, repo_config.timeout, owner, repo, pr_number
+        )
+        for cli_name in all_clis
+    ]
+    results = await asyncio.gather(*tasks)
+
+    successful: dict[str, str] = {}
+    for cli_name, output in zip(all_clis, results):
+        if output is not None:
+            successful[cli_name] = output
+
+    if not successful:
+        raise RuntimeError(
+            f"All CLIs failed in multi-mode for {owner}/{repo}#{pr_number}"
+        )
+
+    if len(successful) == 1:
+        logger.info(
+            f"Only 1 CLI succeeded in multi-mode for {owner}/{repo}#{pr_number}, skipping synthesis"
+        )
+        return next(iter(successful.values()))
+
+    logger.info(
+        f"Synthesizing {len(successful)} reviews ({', '.join(successful.keys())}) "
+        f"for {owner}/{repo}#{pr_number}"
+    )
+    synthesis_prompt = build_synthesis_prompt(successful, diff, repo_config.language)
+
+    synthesizer = get_adapter(repo_config.synthesizer_cli)
+    try:
+        return await synthesizer.run_review(synthesis_prompt, cwd, repo_config.timeout)
+    except Exception as exc:
+        logger.warning(
+            f"Synthesizer '{repo_config.synthesizer_cli}' failed: {exc}. "
+            f"Falling back to longest individual review."
+        )
+        return max(successful.values(), key=len)
 
 
 async def process_review(payload: dict, github_token: str) -> None:
@@ -45,33 +138,13 @@ async def process_review(payload: dict, github_token: str) -> None:
             diff = await github_client.get_pr_diff(owner, repo, pr_number)
             prompt = build_review_prompt(diff, repo_config.language)
 
-            adapter = get_adapter(repo_config.cli)
-            cli_order = [repo_config.cli] + [
-                c for c in repo_config.fallback_cli if c != repo_config.cli
-            ]
-
-            raw_output = None
-            last_error = None
-            for cli_name in cli_order:
-                try:
-                    adapter = get_adapter(cli_name)
-                    raw_output = await adapter.run_review(
-                        prompt, temp_dir, repo_config.timeout
-                    )
-                    logger.info(
-                        f"CLI '{cli_name}' succeeded for {owner}/{repo}#{pr_number}"
-                    )
-                    break
-                except Exception as cli_exc:
-                    last_error = cli_exc
-                    logger.warning(
-                        f"CLI '{cli_name}' failed for {owner}/{repo}#{pr_number}: {cli_exc}"
-                    )
-                    continue
-
-            if raw_output is None:
-                raise RuntimeError(
-                    f"All CLIs failed for {owner}/{repo}#{pr_number}: {last_error}"
+            if repo_config.review_mode == "multi":
+                raw_output = await _review_multi_mode(
+                    repo_config, prompt, diff, temp_dir, owner, repo, pr_number
+                )
+            else:
+                raw_output = await _review_single_mode(
+                    repo_config, prompt, temp_dir, owner, repo, pr_number
                 )
 
             result = parse_review_output(raw_output)

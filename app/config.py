@@ -10,6 +10,8 @@ class RepoConfig(BaseModel):
     fallback_cli: list[str] = Field(
         default_factory=lambda: ["codex", "gemini", "copilot"]
     )
+    review_mode: str = "single"  # "single" = fallback chain, "multi" = all CLIs in parallel + synthesis
+    synthesizer_cli: str = "claude"  # CLI used to synthesize multiple reviews into one
     language: str = "en"
     timeout: int = 600  # seconds
     max_budget_usd: float = 1.0  # Claude only

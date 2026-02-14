@@ -4,6 +4,8 @@ default:
     - codex
     - gemini
     - copilot
+  review_mode: multi
+  synthesizer_cli: claude
   language: en
   timeout: 600
   max_budget_usd: 1.0
@@ -13,5 +15,6 @@ repos:
   # "owner/repo-name":
   #   cli: codex
   #   fallback_cli: [claude, gemini]
+  #   review_mode: single
   #   language: ko
   #   timeout: 300
