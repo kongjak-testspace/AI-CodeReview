@@ -7,6 +7,8 @@ Type=simple
 User=kongjak
 WorkingDirectory=/home/kongjak/AI-CodeReview
 EnvironmentFile=/home/kongjak/AI-CodeReview/.env
+Environment=PATH=/home/kongjak/.local/bin:/home/kongjak/.nvm/versions/node/v24.13.1/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/home/kongjak
 ExecStart=/home/kongjak/AI-CodeReview/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=on-failure
 RestartSec=5
