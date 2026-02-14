@@ -30,3 +30,4 @@ The workflow fires on `pull_request` (`opened`, `synchronize`), computes HMAC, a
 
 ## Supported CLIs
 - Claude, Codex, Gemini, OpenCode, GitHub Copilot
+# Fallback test trigger - 2026-02-14T13:42:02Z
