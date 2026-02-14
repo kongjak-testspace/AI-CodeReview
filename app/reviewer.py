@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 import shutil
 import tempfile
 
@@ -15,7 +14,7 @@ logger = logging.getLogger(__name__)
 _semaphore = asyncio.Semaphore(3)
 
 
-async def process_review(payload: dict) -> None:
+async def process_review(payload: dict, github_token: str) -> None:
     async with _semaphore:
         github_client: GitHubClient | None = None
         temp_dir = tempfile.mkdtemp(prefix="pr-review-")
@@ -39,10 +38,6 @@ async def process_review(payload: dict) -> None:
 
             app_config = load_config()
             repo_config = app_config.get_repo_config(f"{owner}/{repo}")
-
-            github_token = os.getenv("GITHUB_TOKEN", "")
-            if not github_token:
-                raise ValueError("Missing GITHUB_TOKEN")
 
             github_client = GitHubClient(github_token)
 

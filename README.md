@@ -6,7 +6,9 @@ FastAPI webhook service that receives pull request events, runs a selected AI CL
 - Flow: webhook -> config select -> review pipeline -> inline + summary review comments.
 
 ## Config / Env Setup
-- Create `.env` with: `GITHUB_TOKEN`, `WEBHOOK_SECRET`, `BOT_USERNAME`.
+- Create `.env` with: `WEBHOOK_SECRET`.
+- GitHub token is passed per-request from the Actions workflow (`github.token`), so no PAT needed.
+- Reviews are posted as `github-actions[bot]`.
 - Configure defaults and per-repo overrides in `config.yaml`.
 
 ## Local Run
@@ -24,13 +26,7 @@ Instead of configuring webhooks manually, copy `.github/workflows/code-review.ym
 - `WEBHOOK_SECRET`: Must match the server's `WEBHOOK_SECRET` env var.
 - `REVIEW_SERVER_URL`: Your server URL, e.g. `https://review.example.com`.
 
-The workflow fires on `pull_request` (`opened`, `synchronize`), computes HMAC, and POSTs the event payload to your server.
-
-## Manual Webhook Setup (Alternative)
-- GitHub webhook URL: `http(s)://<host>/webhook`
-- Content type: `application/json`, event: `Pull requests`
-- Secret must match `WEBHOOK_SECRET`; invalid signatures return `403`.
-- Bot-originated PRs (`sender.login == BOT_USERNAME`) are ignored.
+The workflow fires on `pull_request` (`opened`, `synchronize`), computes HMAC, and forwards the event payload along with `github.token` to your server. Reviews are posted as `github-actions[bot]`.
 
 ## Supported CLIs
 - Claude, Codex, Gemini, OpenCode, GitHub Copilot

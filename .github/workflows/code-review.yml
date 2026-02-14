@@ -19,4 +19,5 @@ jobs:
             -H "Content-Type: application/json" \
             -H "X-GitHub-Event: pull_request" \
             -H "X-Hub-Signature-256: sha256=${SIG}" \
+            -H "X-GitHub-Token: ${{ github.token }}" \
             -d "$PAYLOAD"
