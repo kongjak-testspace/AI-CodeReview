@@ -11,20 +11,42 @@ FastAPI webhook service that receives pull request events, runs a selected AI CL
 - Reviews are posted as `github-actions[bot]`.
 - Configure defaults and per-repo overrides in `config.yaml`.
 
-## Local Run
-- Install deps: `uv sync`
-- Start server: `uv run uvicorn app.main:app --host 0.0.0.0 --port 8000`
-- Health check: `curl -s http://127.0.0.1:8000/health`
-- Webhook mock test: `bash scripts/test_webhook.sh`
+## Prerequisites
+Install the AI CLI tools you want to use on the host machine:
+- **Claude**: `curl -fsSL https://claude.ai/install.sh | bash`
+- **Codex**: `npm install -g @openai/codex`
+- **Gemini**: `npm install -g @google/gemini-cli`
+- **GitHub Copilot**: `gh extension install github/gh-copilot`
 
-## Docker Run
-- Build and run: `docker compose up -d --build`
-- Stop: `docker compose down`
+Each CLI must be authenticated (OAuth) before running the server.
 
-## GitHub Actions Trigger (Recommended)
-Instead of configuring webhooks manually, copy `.github/workflows/code-review.yml` into each target repo. Add these repository secrets:
+## Deployment
+
+### Install dependencies
+```bash
+uv sync
+```
+
+### Run directly
+```bash
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+### Run as systemd service
+```bash
+sudo cp code-review.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now code-review
+sudo systemctl status code-review
+```
+
+### Reverse proxy (nginx)
+Copy `nginx/review.kongjak.dev.conf` to `/etc/nginx/sites-enabled/` and reload nginx.
+
+## GitHub Actions Trigger
+Copy `.github/workflows/code-review.yml` into each target repo. Add these repository secrets:
 - `WEBHOOK_SECRET`: Must match the server's `WEBHOOK_SECRET` env var.
-- `REVIEW_SERVER_URL`: Your server URL, e.g. `https://review.example.com`.
+- `REVIEW_SERVER_URL`: Your server URL, e.g. `https://review.kongjak.dev`.
 
 The workflow fires on `pull_request` (`opened`, `synchronize`), computes HMAC, and forwards the event payload along with `github.token` to your server. Reviews are posted as `github-actions[bot]`.
 

@@ -1,0 +1,15 @@
+[Unit]
+Description=GitHub PR Code Review Server
+After=network.target
+
+[Service]
+Type=simple
+User=kongjak
+WorkingDirectory=/home/kongjak/Work/Python/Code-Review
+EnvironmentFile=/home/kongjak/Work/Python/Code-Review/.env
+ExecStart=/home/kongjak/Work/Python/Code-Review/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
