@@ -2,6 +2,7 @@ import asyncio
 import logging
 import shutil
 import tempfile
+from pathlib import Path
 
 from app.cli.base import get_adapter
 from app.config import RepoConfig, load_config
@@ -12,6 +13,38 @@ from app.prompt import build_review_prompt, build_synthesis_prompt
 
 logger = logging.getLogger(__name__)
 _semaphore = asyncio.Semaphore(3)
+
+INSTRUCTION_FILES = [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "COPILOT.md",
+    "GEMINI.md",
+    "CODEX.md",
+    ".github/AGENTS.md",
+    ".github/CLAUDE.md",
+    ".github/copilot-instructions.md",
+]
+
+
+def _load_repo_instructions(repo_dir: str) -> str:
+    parts: list[str] = []
+    seen: set[str] = set()
+
+    for name in INSTRUCTION_FILES:
+        path = Path(repo_dir) / name
+        if not path.is_file():
+            continue
+        try:
+            content = path.read_text(encoding="utf-8").strip()
+        except Exception:
+            continue
+        if not content or content in seen:
+            continue
+        seen.add(content)
+        parts.append(f"[{name}]\n{content}")
+        logger.info(f"Loaded repo instructions from {name}")
+
+    return "\n\n".join(parts)
 
 
 async def _run_single_cli(
@@ -136,7 +169,8 @@ async def process_review(payload: dict, github_token: str) -> None:
 
             await github_client.clone_repo(clone_url, head_ref, temp_dir)
             diff = await github_client.get_pr_diff(owner, repo, pr_number)
-            prompt = build_review_prompt(diff, repo_config.language)
+            repo_instructions = _load_repo_instructions(temp_dir)
+            prompt = build_review_prompt(diff, repo_config.language, repo_instructions)
 
             if repo_config.review_mode == "multi":
                 raw_output = await _review_multi_mode(
