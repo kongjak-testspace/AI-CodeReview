@@ -1,25 +1,33 @@
 import asyncio
 import logging
+import re
 from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
 
+RATE_LIMIT_PATTERNS = [
+    re.compile(r"hit your limit", re.IGNORECASE),
+    re.compile(r"rate limit", re.IGNORECASE),
+    re.compile(r"quota exceeded", re.IGNORECASE),
+    re.compile(r"too many requests", re.IGNORECASE),
+    re.compile(r"resets \d+", re.IGNORECASE),
+]
+
+
+class CLIError(Exception):
+    pass
+
 
 class CLIAdapter(ABC):
     @abstractmethod
-    async def run_review(self, prompt: str, cwd: str, timeout: int) -> str:
-        """Execute CLI with prompt and return raw output"""
-        ...
+    async def run_review(self, prompt: str, cwd: str, timeout: int) -> str: ...
 
     @abstractmethod
-    def build_command(self, prompt: str, cwd: str) -> list[str]:
-        """Build CLI command arguments"""
-        ...
+    def build_command(self, prompt: str, cwd: str) -> list[str]: ...
 
     async def _execute(
         self, cmd: list[str], cwd: str, timeout: int, stdin: str | None = None
     ) -> str:
-        """Common executor for subprocess with timeout and capture"""
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -40,11 +48,21 @@ class CLIAdapter(ABC):
                 await proc.wait()
                 raise
 
+            output = stdout.decode() + stderr.decode()
+
             if proc.returncode != 0:
-                logger.error(f"CLI failed: {cmd[0]}, stderr: {stderr.decode()}")
+                raise CLIError(
+                    f"CLI '{cmd[0]}' exited with code {proc.returncode}: {output[:200]}"
+                )
 
-            return stdout.decode() + stderr.decode()
+            for pattern in RATE_LIMIT_PATTERNS:
+                if pattern.search(output):
+                    raise CLIError(f"CLI '{cmd[0]}' hit rate limit: {output[:200]}")
 
+            return output
+
+        except (CLIError, asyncio.TimeoutError):
+            raise
         except Exception as e:
             logger.error(f"CLI execution error: {cmd[0]}, {e}")
             raise
