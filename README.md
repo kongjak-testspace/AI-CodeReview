@@ -19,7 +19,14 @@ FastAPI webhook service that receives pull request events, runs a selected AI CL
 - Build and run: `docker compose up -d --build`
 - Stop: `docker compose down`
 
-## Webhook Setup Summary
+## GitHub Actions Trigger (Recommended)
+Instead of configuring webhooks manually, copy `.github/workflows/code-review.yml` into each target repo. Add these repository secrets:
+- `WEBHOOK_SECRET`: Must match the server's `WEBHOOK_SECRET` env var.
+- `REVIEW_SERVER_URL`: Your server URL, e.g. `https://review.example.com`.
+
+The workflow fires on `pull_request` (`opened`, `synchronize`), computes HMAC, and POSTs the event payload to your server.
+
+## Manual Webhook Setup (Alternative)
 - GitHub webhook URL: `http(s)://<host>/webhook`
 - Content type: `application/json`, event: `Pull requests`
 - Secret must match `WEBHOOK_SECRET`; invalid signatures return `403`.

@@ -40,6 +40,12 @@ class GitHubClient:
         Raises:
             RuntimeError: If git commands fail
         """
+        # Inject token into clone URL for private repo access
+        authenticated_url = clone_url.replace(
+            "https://github.com/",
+            f"https://x-access-token:{self.token}@github.com/",
+        )
+
         # Clone with depth 50 for Codex compatibility
         clone_proc = await asyncio.create_subprocess_exec(
             "git",
@@ -47,7 +53,7 @@ class GitHubClient:
             "--depth",
             "50",
             "--no-single-branch",
-            clone_url,
+            authenticated_url,
             target_dir,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -75,7 +81,7 @@ class GitHubClient:
             logger.error(f"git checkout failed: {error_msg}")
             raise RuntimeError(f"git checkout failed: {error_msg}")
 
-        logger.info(f"Cloned {clone_url} to {target_dir} and checked out {ref}")
+        logger.info(f"Cloned to {target_dir} and checked out {ref}")
 
     async def get_pr_diff(self, owner: str, repo: str, pr_number: int) -> str:
         """Fetch PR unified diff.
