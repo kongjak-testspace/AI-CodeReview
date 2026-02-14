@@ -46,7 +46,34 @@ async def process_review(payload: dict, github_token: str) -> None:
             prompt = build_review_prompt(diff, repo_config.language)
 
             adapter = get_adapter(repo_config.cli)
-            raw_output = await adapter.run_review(prompt, temp_dir, repo_config.timeout)
+            cli_order = [repo_config.cli] + [
+                c for c in repo_config.fallback_cli if c != repo_config.cli
+            ]
+
+            raw_output = None
+            last_error = None
+            for cli_name in cli_order:
+                try:
+                    adapter = get_adapter(cli_name)
+                    raw_output = await adapter.run_review(
+                        prompt, temp_dir, repo_config.timeout
+                    )
+                    logger.info(
+                        f"CLI '{cli_name}' succeeded for {owner}/{repo}#{pr_number}"
+                    )
+                    break
+                except Exception as cli_exc:
+                    last_error = cli_exc
+                    logger.warning(
+                        f"CLI '{cli_name}' failed for {owner}/{repo}#{pr_number}: {cli_exc}"
+                    )
+                    continue
+
+            if raw_output is None:
+                raise RuntimeError(
+                    f"All CLIs failed for {owner}/{repo}#{pr_number}: {last_error}"
+                )
+
             result = parse_review_output(raw_output)
 
             await github_client.post_review(

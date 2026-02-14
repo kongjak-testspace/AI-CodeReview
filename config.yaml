@@ -1,5 +1,9 @@
 default:
   cli: claude
+  fallback_cli:
+    - codex
+    - gemini
+    - copilot
   language: en
   timeout: 600
   max_budget_usd: 1.0
@@ -8,5 +12,6 @@ repos:
   # Example: per-repo configuration overrides
   # "owner/repo-name":
   #   cli: codex
+  #   fallback_cli: [claude, gemini]
   #   language: ko
   #   timeout: 300

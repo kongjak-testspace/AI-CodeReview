@@ -7,6 +7,9 @@ class RepoConfig(BaseModel):
     """Per-repository configuration for code review settings."""
 
     cli: str = "claude"  # claude, codex, gemini, opencode, copilot
+    fallback_cli: list[str] = Field(
+        default_factory=lambda: ["codex", "gemini", "copilot"]
+    )
     language: str = "en"
     timeout: int = 600  # seconds
     max_budget_usd: float = 1.0  # Claude only
