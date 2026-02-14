@@ -2,7 +2,7 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request
 
 from app.reviewer import process_review
 from app.webhook import verify_github_signature
@@ -24,7 +24,7 @@ async def health_check():
 
 
 @app.post("/webhook")
-async def webhook_handler(request: Request, background_tasks: BackgroundTasks):
+async def webhook_handler(request: Request):
     await verify_github_signature(request, WEBHOOK_SECRET)
 
     event_type = request.headers.get("X-GitHub-Event")
@@ -49,6 +49,6 @@ async def webhook_handler(request: Request, background_tasks: BackgroundTasks):
     if not pr_number:
         raise HTTPException(status_code=400, detail="Missing pull_request.number")
 
-    background_tasks.add_task(process_review, payload, github_token)
+    await process_review(payload, github_token)
 
-    return {"status": "queued", "pr": pr_number}
+    return {"status": "reviewed", "pr": pr_number}

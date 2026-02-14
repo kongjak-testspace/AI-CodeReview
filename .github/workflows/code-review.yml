@@ -4,9 +4,14 @@ on:
   pull_request:
     types: [opened, synchronize]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   review:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Trigger review server
         env:
@@ -15,7 +20,7 @@ jobs:
         run: |
           PAYLOAD='${{ toJSON(github.event) }}'
           SIG=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $2}')
-          curl -sf -X POST "${SERVER_URL}/webhook" \
+          curl -sf --max-time 660 -X POST "${SERVER_URL}/webhook" \
             -H "Content-Type: application/json" \
             -H "X-GitHub-Event: pull_request" \
             -H "X-Hub-Signature-256: sha256=${SIG}" \
