@@ -6,7 +6,7 @@ default:
     - copilot
   review_mode: multi
   synthesizer_cli: claude
-  language: en
+  language: ko
   timeout: 600
   max_budget_usd: 1.0
 
