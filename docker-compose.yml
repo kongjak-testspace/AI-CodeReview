@@ -8,4 +8,8 @@ services:
       - .env
     volumes:
       - ./config.yaml:/app/config.yaml:ro
+      - ~/.claude:/root/.claude:ro
+      - ~/.codex:/root/.codex:ro
+      - ~/.gemini:/root/.gemini:ro
+      - ~/.config/gh:/root/.config/gh:ro
     restart: unless-stopped
